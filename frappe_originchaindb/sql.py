@@ -7,6 +7,30 @@ from sqlparse import tokens
 
 
 def transaction_kind(query):
+    first_word = re.match(r"\s*([A-Za-z]+)", query)
+    if first_word:
+        simple = first_word[1].lower()
+        if simple in {
+            "select",
+            "insert",
+            "update",
+            "delete",
+            "merge",
+            "create",
+            "alter",
+            "drop",
+            "truncate",
+            "rename",
+            "commit",
+            "rollback",
+            "start",
+            "begin",
+            "savepoint",
+            "release",
+            "set",
+            "show",
+        }:
+            return "update" if simple == "merge" else simple
     statements = sqlparse.parse(query)
     if not statements:
         return ""

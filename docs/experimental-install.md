@@ -71,13 +71,15 @@ to downgrade isolation.
 - Uses PostgreSQL driver binding, Frappe type/schema mapping, ORM and transaction methods.
 - Checks backend opt-in, listener details, TLS and transaction isolation.
 - Bootstraps the pinned core SQL over the driver, omitting destructive DROP statements.
-- Prevents DDL from silently committing pending application writes.
+- Uses explicit commit boundaries for DocType schema synchronization, and prevents
+  arbitrary DDL from silently committing pending ordinary application writes.
 - Splits schema-only batches while rejecting mixed/parameterized SQL batches.
 - Makes the Lost Opportunity and Pick List aggregation paths choose the PostgreSQL dialect.
 
 The inherited PostgreSQL schema/catalog and raw query surface still needs engine
 validation. Native CLI database commands, dump/restore, reinstall and managed
-database/user deletion are not supported. Full upstream suites, UI behavior,
+database/user deletion are not supported. Alternate credentials or read-replica
+connection overrides are also refused. Full upstream suites, UI behavior,
 accounting, inventory, concurrency and operational recovery remain release gates.
 Do not interpret installation or smoke-test success as full functionality.
 

@@ -13,12 +13,28 @@ from frappe.database.postgres.database import PostgresDatabase
 from frappe.database.utils import EmptyQueryValues
 from psycopg2.extensions import ISOLATION_LEVEL_REPEATABLE_READ
 
-from .config import connection_settings
+from .config import connection_settings, validate
 from .sql import partial_rollback, transaction_kind
 
 
 class OriginChainDatabase(PostgresDatabase):
     backend_name = "originchaindb"
+
+    def __init__(self, socket=None, host=None, user=None, password=None, port=None, cur_db_name=None):
+        conf = frappe.conf
+        validate(conf)
+        supplied = {
+            "db_host": host,
+            "db_user": user,
+            "db_password": password,
+            "db_port": port,
+            "db_name": cur_db_name,
+        }
+        if socket or any(value is not None and value != conf[key] for key, value in supplied.items()):
+            raise ValueError(
+                "Alternate database/credential/replica routing is not implemented for OriginChainDB"
+            )
+        super().__init__(None, conf.db_host, conf.db_user, conf.db_password, conf.db_port, conf.db_name)
 
     def get_connection(self):
         conn = psycopg2.connect(**connection_settings(frappe.conf))
@@ -44,8 +60,9 @@ class OriginChainDatabase(PostgresDatabase):
 
     def check_transaction_status(self, query, query_type=None):
         prior_writes = self.transaction_writes
-        super().check_transaction_status(query, transaction_kind(query))
-        if partial_rollback(query):
+        kind = transaction_kind(query)
+        super().check_transaction_status(query, kind)
+        if kind == "rollback" and partial_rollback(query):
             # Rollback to a savepoint does not discard earlier writes. A conservative
             # count prevents subsequent DDL from implicitly committing that work.
             self.transaction_writes = prior_writes
@@ -54,9 +71,30 @@ class OriginChainDatabase(PostgresDatabase):
         mode = " READ ONLY" if read_only or frappe.flags.read_only else ""
         self.sql("START TRANSACTION ISOLATION LEVEL REPEATABLE READ" + mode)
 
+    def updatedb(self, doctype, meta=None):
+        if self._disable_transaction_control:
+            raise RuntimeError("Schema synchronization requires an explicit commit boundary")
+        previous = getattr(self, "_originchain_schema_sync", False)
+        self.commit()
+        self._originchain_schema_sync = True
+        try:
+            return super().updatedb(doctype, meta)
+        finally:
+            self._originchain_schema_sync = previous
+
     def sql(self, query, values=EmptyQueryValues, *args, **kwargs):
         statements = sqlparse.split(str(query))
         if len(statements) <= 1:
+            if getattr(self, "_originchain_schema_sync", False) and transaction_kind(str(query)) in {
+                "create",
+                "alter",
+                "drop",
+                "truncate",
+                "rename",
+            }:
+                # This is an explicit DocType schema operation, mirroring MariaDB's
+                # DDL boundaries. Never enable it for ordinary document writes.
+                self.commit()
             return super().sql(query, values, *args, **kwargs)
         if values is not EmptyQueryValues and values is not None:
             raise ValueError("Parameterized multi-statement SQL is not supported by the experimental backend")
@@ -66,9 +104,9 @@ class OriginChainDatabase(PostgresDatabase):
             kind = sqlparse.parse(statement)[0].get_type()
             if kind not in {"CREATE", "ALTER", "DROP"}:
                 raise ValueError("Only schema-only SQL batches are supported by the experimental backend")
-        if self.transaction_writes:
+        if self.transaction_writes and not getattr(self, "_originchain_schema_sync", False):
             raise frappe.ImplicitCommitError("Commit pending data writes before schema changes")
         result = None
         for statement in statements:
-            result = super().sql(statement, *args, **kwargs)
+            result = self.sql(statement, EmptyQueryValues, *args, **kwargs)
         return result

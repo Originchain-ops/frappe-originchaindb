@@ -11,6 +11,12 @@ from frappe_originchaindb.database import OriginChainDatabase
 
 def framework():
     assert isinstance(frappe.db, OriginChainDatabase)
+    try:
+        OriginChainDatabase(host="unintended-target.invalid")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Alternate target silently fell back to the site's database")
     assert frappe.db.db_type == "postgres"  # SQL dialect is distinct from backend identity.
     frappe.db.commit()
     assert frappe.db.sql("SHOW transaction_isolation")[0][0] == "repeatable read"
@@ -54,24 +60,36 @@ def framework():
     frappe.db.set_value(name, doc.name, "extra_note", "schema evolved")
     frappe.db.commit()
     assert frappe.get_doc(name, doc.name).extra_note == "schema evolved"
-    frappe.db.set_value(name, doc.name, "amount", 88)
-    try:
-        frappe.db.sql('CREATE TABLE "oc_forbidden_implicit_commit" (name TEXT)')
-    except frappe.ImplicitCommitError:
-        pass
-    else:
-        raise AssertionError("DDL was accepted with pending application writes")
-    finally:
-        frappe.db.rollback()
-    assert frappe.db.get_value(name, doc.name, "amount") == 12.5
+    for write in [
+        '/* write */ UPDATE "tabOC Adapter Probe" SET amount=88 WHERE name=%s',
+        'WITH changed AS (UPDATE "tabOC Adapter Probe" SET amount=88 WHERE name=%s RETURNING name) SELECT * FROM changed',
+    ]:
+        frappe.db.sql(write, (doc.name,))
+        frappe.db.savepoint("oc_guard")
+        frappe.db.set_value(name, doc.name, "amount", 77)
+        frappe.db.rollback(save_point="oc_guard")
+        try:
+            frappe.db.sql('CREATE TABLE "oc_forbidden_implicit_commit" (name TEXT)')
+        except frappe.ImplicitCommitError:
+            pass
+        else:
+            raise AssertionError(
+                "DDL was accepted after rollback to savepoint with earlier writes still pending"
+            )
+        finally:
+            frappe.db.rollback()
+        assert frappe.db.get_value(name, doc.name, "amount") == 12.5
     return [
         "backend_dispatch",
+        "alternate_target_refused",
         "doctype_schema",
         "document_insert_read",
         "rollback",
         "savepoints",
         "schema_evolution",
         "implicit_commit_guard",
+        "writable_cte_accounting",
+        "savepoint_preserves_ddl_guard",
     ]
 
 
