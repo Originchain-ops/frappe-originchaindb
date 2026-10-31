@@ -144,7 +144,7 @@ def inspect_sources(roots: dict[str, Path]) -> dict:
         "baseline_verified": baseline_verified,
         "audit_complete": complete,
         "originchaindb_tested": False,
-        "adapter_implemented": False,
+        "adapter_exercised_by_this_audit": False,
         "release_ready": False,
         "scope": "Curated evidence only; not a complete query inventory or a functionality certification.",
         "sources": sources,

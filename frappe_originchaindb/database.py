@@ -14,6 +14,7 @@ from frappe.database.utils import EmptyQueryValues
 from psycopg2.extensions import ISOLATION_LEVEL_REPEATABLE_READ
 
 from .config import connection_settings
+from .sql import partial_rollback, transaction_kind
 
 
 class OriginChainDatabase(PostgresDatabase):
@@ -40,6 +41,18 @@ class OriginChainDatabase(PostgresDatabase):
         # OriginChainDB DDL is not transactional. Restore the base guard that the
         # stock PostgreSQL backend disables, rather than silently committing DML.
         Database.check_implicit_commit(self, query, query_type)
+
+    def check_transaction_status(self, query, query_type=None):
+        prior_writes = self.transaction_writes
+        super().check_transaction_status(query, transaction_kind(query))
+        if partial_rollback(query):
+            # Rollback to a savepoint does not discard earlier writes. A conservative
+            # count prevents subsequent DDL from implicitly committing that work.
+            self.transaction_writes = prior_writes
+
+    def begin(self, *, read_only=False):
+        mode = " READ ONLY" if read_only or frappe.flags.read_only else ""
+        self.sql("START TRANSACTION ISOLATION LEVEL REPEATABLE READ" + mode)
 
     def sql(self, query, values=EmptyQueryValues, *args, **kwargs):
         statements = sqlparse.split(str(query))

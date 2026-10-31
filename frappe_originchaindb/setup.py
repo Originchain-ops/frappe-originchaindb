@@ -88,6 +88,10 @@ def create_site(site, connection_config, admin_password=None):
     # No force, arbitrary source SQL, remote admin credentials or destructive
     # rollback callback. On failure retain local state for diagnosis/recovery.
     try:
+        # Match Frappe's standard new-site entry point before _new_site reads config.
+        frappe.init(site, new_site=True)
+        if site in frappe.get_all_apps():
+            raise ValueError("The site name must not match an installed app")
         _new_site(
             db_name=config["db_name"],
             site=site,

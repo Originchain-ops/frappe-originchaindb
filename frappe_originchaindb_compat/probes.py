@@ -334,7 +334,7 @@ def run_probes(config: TestConfig, *, allow_scratch_writes=False, connect=None):
         else "operator_supplied_originchaindb",
         "server_identity_verified": False,
         "all_prerequisites_passed": all(result["status"] == "passed" for result in results),
-        "adapter_implemented": False,
+        "adapter_exercised_by_these_probes": False,
         "frappe_erpnext_tested": False,
         "release_ready": False,
         "scope": "Eight prerequisites only. Does not validate a complete application or database product identity.",

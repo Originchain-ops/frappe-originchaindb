@@ -1,13 +1,14 @@
 # Gates for a working application release
 
-The `0.1.0-alpha.1` toolkit release does not satisfy these gates. No combination
-of its offline tests or reference PostgreSQL checks constitutes application parity.
+The `0.2.0-alpha.1` branch implements an experimental adapter but does not satisfy
+the OriginChainDB release gates. No combination of offline tests or reference
+PostgreSQL checks constitutes OriginChainDB application parity.
 
 | Gate | Required evidence | Initial status |
 | --- | --- | --- |
 | Engine baseline | Build ID, redacted capabilities, listener mode and exact topology | Not tested |
 | SQL prerequisites | Eight workbench checks plus a complete application query inventory | Not tested on OriginChainDB |
-| Backend implementation | Reviewed driver, schema, provisioning, query and backup integration | Not implemented |
+| Backend implementation | Reviewed driver, schema, provisioning, query and backup integration | Experimental driver/bootstrap present; native backup/restore unsupported |
 | Fresh install | New site, ERPNext installation, setup wizard, company and chart of accounts | Not tested |
 | Framework | Complete upstream test suite, permissions, DocTypes, workflows, APIs and jobs | Not tested |
 | ERPNext | Complete upstream test suite on the same engine baseline | Not tested |

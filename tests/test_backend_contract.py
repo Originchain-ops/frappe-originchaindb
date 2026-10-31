@@ -3,6 +3,28 @@ from unittest.mock import Mock, patch
 
 from frappe_originchaindb.config import connection_settings, validate
 from frappe_originchaindb.setup import assert_empty_schema, bootstrap_statements, drop_user_and_database
+from frappe_originchaindb.sql import partial_rollback, transaction_kind
+
+
+class TransactionClassificationTests(unittest.TestCase):
+    def test_comments_do_not_hide_writes_or_schema_changes(self):
+        self.assertEqual(transaction_kind("-- audit\nUPDATE x SET a=1"), "update")
+        self.assertEqual(transaction_kind("/* comment */ CREATE TABLE x (a INT)"), "create")
+
+    def test_writable_cte_counts_as_a_write(self):
+        self.assertEqual(
+            transaction_kind("WITH changed AS (UPDATE x SET a=1 RETURNING a) SELECT * FROM changed"), "update"
+        )
+
+    def test_literals_and_read_only_ctes_do_not_become_writes(self):
+        self.assertEqual(transaction_kind("SELECT 'UPDATE x SET a=1'"), "select")
+        self.assertEqual(transaction_kind("WITH x AS (SELECT 1) SELECT * FROM x"), "with")
+
+    def test_partial_and_full_rollback_are_distinguished(self):
+        self.assertTrue(partial_rollback("/* comment */ ROLLBACK TO SAVEPOINT first"))
+        self.assertTrue(partial_rollback("ROLLBACK WORK TO first"))
+        self.assertFalse(partial_rollback("ROLLBACK AND CHAIN"))
+        self.assertFalse(partial_rollback("SELECT 'ROLLBACK TO first'"))
 
 
 def configuration():
@@ -78,7 +100,7 @@ class ManagedSchemaTests(unittest.TestCase):
         self.assertIn("'a;b'", statements[0])
 
     def test_nonempty_or_missing_schema_refused(self):
-        for replies in [[], [("public",)], [("public",)]]:
+        for replies in [[], [("public",)]]:
             db = Mock(db_schema="public")
             db.sql.side_effect = [replies, [(1,)], [(0,)], [(0,)]]
             with self.assertRaises(ValueError):

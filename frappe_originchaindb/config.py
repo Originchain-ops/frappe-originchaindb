@@ -32,7 +32,8 @@ def validate(config, *, environment=None):
     if cert := config.get("db_sslrootcert"):
         if not isinstance(cert, str) or not Path(cert).is_file():
             raise ValueError("db_sslrootcert must name an existing CA file")
-    if config.get("db_isolation_level", "repeatable read").lower() != "repeatable read":
+    isolation = config.get("db_isolation_level", "repeatable read")
+    if not isinstance(isolation, str) or isolation.lower() != "repeatable read":
         raise ValueError("This backend preserves Frappe's repeatable-read isolation requirement")
     environment = os.environ if environment is None else environment
     overrides = {"PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"}

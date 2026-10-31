@@ -4,7 +4,7 @@
   "baseline_verified": true,
   "audit_complete": true,
   "originchaindb_tested": false,
-  "adapter_implemented": false,
+  "adapter_exercised_by_this_audit": false,
   "release_ready": false,
   "scope": "Curated evidence only; not a complete query inventory or a functionality certification.",
   "sources": {

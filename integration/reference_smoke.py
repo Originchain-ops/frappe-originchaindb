@@ -12,6 +12,8 @@ from frappe_originchaindb.database import OriginChainDatabase
 def framework():
     assert isinstance(frappe.db, OriginChainDatabase)
     assert frappe.db.db_type == "postgres"  # SQL dialect is distinct from backend identity.
+    frappe.db.commit()
+    assert frappe.db.sql("SHOW transaction_isolation")[0][0] == "repeatable read"
     name = "OC Adapter Probe"
     if not frappe.db.exists("DocType", name):
         frappe.get_doc(
