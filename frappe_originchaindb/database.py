@@ -83,6 +83,10 @@ class OriginChainDatabase(PostgresDatabase):
             self._originchain_schema_sync = previous
 
     def sql(self, query, values=EmptyQueryValues, *args, **kwargs):
+        if not kwargs.get("run", True) or kwargs.get("explain", False):
+            # Preserve Frappe's preview behavior before any DDL boundary or batch
+            # splitting. Rendering SQL must never commit application writes.
+            return super().sql(query, values, *args, **kwargs)
         statements = sqlparse.split(str(query))
         if len(statements) <= 1:
             if getattr(self, "_originchain_schema_sync", False) and transaction_kind(str(query)) in {

@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import frappe
 
@@ -60,6 +61,20 @@ def framework():
     frappe.db.set_value(name, doc.name, "extra_note", "schema evolved")
     frappe.db.commit()
     assert frappe.get_doc(name, doc.name).extra_note == "schema evolved"
+    preview = 'CREATE TABLE "oc_preview_only" (name TEXT); DROP TABLE "oc_preview_only";'
+    frappe.db.set_value(name, doc.name, "amount", 99)
+    frappe.db._originchain_schema_sync = True
+    try:
+        with patch.object(frappe.db, "commit", side_effect=AssertionError("SQL preview committed data")):
+            assert frappe.db.sql(preview, run=False) == preview
+            assert frappe.db.sql(preview, explain=True) is None
+    finally:
+        frappe.db._originchain_schema_sync = False
+        frappe.db.rollback()
+    assert frappe.db.get_value(name, doc.name, "amount") == 12.5
+    assert not frappe.db.sql(
+        "SELECT table_name FROM information_schema.tables WHERE table_name='oc_preview_only'"
+    )
     for write in [
         '/* write */ UPDATE "tabOC Adapter Probe" SET amount=88 WHERE name=%s',
         'WITH changed AS (UPDATE "tabOC Adapter Probe" SET amount=88 WHERE name=%s RETURNING name) SELECT * FROM changed',
@@ -87,6 +102,7 @@ def framework():
         "rollback",
         "savepoints",
         "schema_evolution",
+        "sql_preview_has_no_side_effects",
         "implicit_commit_guard",
         "writable_cte_accounting",
         "savepoint_preserves_ddl_guard",
