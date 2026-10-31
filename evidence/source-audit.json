@@ -1,0 +1,163 @@
+{
+  "report_kind": "static_source_audit",
+  "docs_review_date": "2026-10-31",
+  "baseline_verified": true,
+  "audit_complete": true,
+  "originchaindb_tested": false,
+  "adapter_implemented": false,
+  "release_ready": false,
+  "scope": "Curated evidence only; not a complete query inventory or a functionality certification.",
+  "sources": {
+    "frappe": {
+      "tag": "v16.54.0",
+      "commit": "2fcb9397a1f1da353b21e53d2f97ec56653acd02",
+      "observed_commit": "2fcb9397a1f1da353b21e53d2f97ec56653acd02",
+      "clean": true
+    },
+    "erpnext": {
+      "tag": "v16.53.0",
+      "commit": "9cd11b19575bfc34f092a24f6c8b368c4dd69481",
+      "observed_commit": "9cd11b19575bfc34f092a24f6c8b368c4dd69481",
+      "clean": true
+    }
+  },
+  "findings": [
+    {
+      "id": "mysql_schema_inspection",
+      "project": "frappe",
+      "path": "frappe/database/mariadb/mysqlclient.py",
+      "anchor": "SHOW INDEX FROM",
+      "surface": "mysql",
+      "assessment": "documented_incompatibility",
+      "reason": "The MySQL adapter rejects SHOW statements required by this backend.",
+      "documentation": "https://originchaindb.com/docs/compatibility/mysql-wire",
+      "evidence_found": true,
+      "line_numbers": [
+        413,
+        425,
+        438
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/database/mariadb/mysqlclient.py#L413"
+    },
+    {
+      "id": "mysql_customer_naming",
+      "project": "erpnext",
+      "path": "erpnext/selling/doctype/customer/customer.py",
+      "anchor": "MAX(CAST(SUBSTRING_INDEX(name, ' ', -1) AS UNSIGNED))",
+      "surface": "mysql",
+      "assessment": "documented_incompatibility",
+      "reason": "The MySQL branch uses SUBSTRING_INDEX; a separate PostgreSQL branch already exists.",
+      "documentation": "https://originchaindb.com/docs/compatibility/mysql-wire",
+      "evidence_found": true,
+      "line_numbers": [
+        151
+      ],
+      "source_url": "https://github.com/frappe/erpnext/blob/9cd11b19575bfc34f092a24f6c8b368c4dd69481/erpnext/selling/doctype/customer/customer.py#L151"
+    },
+    {
+      "id": "mysql_report_aggregation",
+      "project": "erpnext",
+      "path": "erpnext/crm/report/lost_opportunity/lost_opportunity.py",
+      "anchor": "GROUP_CONCAT(OpportunityLostReasonDetail.lost_reason",
+      "surface": "mysql; inspect PostgreSQL portability separately",
+      "assessment": "documented_incompatibility",
+      "reason": "This report directly uses GROUP_CONCAT, which the MySQL adapter rejects.",
+      "documentation": "https://originchaindb.com/docs/compatibility/mysql-wire",
+      "evidence_found": true,
+      "line_numbers": [
+        88
+      ],
+      "source_url": "https://github.com/frappe/erpnext/blob/9cd11b19575bfc34f092a24f6c8b368c4dd69481/erpnext/crm/report/lost_opportunity/lost_opportunity.py#L88"
+    },
+    {
+      "id": "repeatable_read",
+      "project": "frappe",
+      "path": "frappe/database/postgres/database.py",
+      "anchor": "conn.set_isolation_level(ISOLATION_LEVEL_REPEATABLE_READ)",
+      "surface": "postgresql",
+      "assessment": "requires_live_validation",
+      "reason": "Frappe requests repeatable read; the wire guide establishes read committed as baseline.",
+      "documentation": "https://originchaindb.com/docs/connect-sql-client",
+      "evidence_found": true,
+      "line_numbers": [
+        196
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/database/postgres/database.py#L196"
+    },
+    {
+      "id": "savepoint_rollback",
+      "project": "frappe",
+      "path": "frappe/database/database.py",
+      "anchor": "self.sql(f\"rollback to savepoint {save_point}\")",
+      "surface": "postgresql",
+      "assessment": "requires_live_validation",
+      "reason": "Test partial rollback and recovery after an error inside an active transaction.",
+      "documentation": "https://originchaindb.com/docs/postgresql-compatibility",
+      "evidence_found": true,
+      "line_numbers": [
+        1199
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/database/database.py#L1199"
+    },
+    {
+      "id": "naming_series_locking",
+      "project": "frappe",
+      "path": "frappe/model/naming.py",
+      "anchor": ".where(series.name == key).for_update().select(\"current\")",
+      "surface": "postgresql",
+      "assessment": "requires_live_validation",
+      "reason": "Number allocation depends on locking; successful SELECT syntax alone is insufficient.",
+      "documentation": "https://originchaindb.com/docs/transactions",
+      "evidence_found": true,
+      "line_numbers": [
+        412
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/model/naming.py#L412"
+    },
+    {
+      "id": "currency_storage",
+      "project": "frappe",
+      "path": "frappe/database/postgres/database.py",
+      "anchor": "\"Currency\": (\"decimal\", \"21,9\")",
+      "surface": "postgresql",
+      "assessment": "requires_live_validation",
+      "reason": "Verify precision, scale, aggregation and application rounding; numeric parity is unestablished.",
+      "documentation": "https://originchaindb.com/docs/postgresql-compatibility",
+      "evidence_found": true,
+      "line_numbers": [
+        134
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/database/postgres/database.py#L134"
+    },
+    {
+      "id": "site_provisioning",
+      "project": "frappe",
+      "path": "frappe/database/postgres/setup_db.py",
+      "anchor": "CREATE DATABASE \"{frappe.conf.db_name}\"",
+      "surface": "postgresql",
+      "assessment": "requires_live_validation",
+      "reason": "Provisioning assumes database administration; a managed-instance bootstrap path needs design.",
+      "documentation": "https://originchaindb.com/docs/connect-sql-client",
+      "evidence_found": true,
+      "line_numbers": [
+        20
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/database/postgres/setup_db.py#L20"
+    },
+    {
+      "id": "backup_restore",
+      "project": "frappe",
+      "path": "frappe/database/__init__.py",
+      "anchor": "which(\"pg_dump\")",
+      "surface": "postgresql",
+      "assessment": "requires_live_validation",
+      "reason": "Wire compatibility does not establish pg_dump or restore compatibility.",
+      "documentation": "https://originchaindb.com/docs/connect-sql-client",
+      "evidence_found": true,
+      "line_numbers": [
+        173
+      ],
+      "source_url": "https://github.com/frappe/frappe/blob/2fcb9397a1f1da353b21e53d2f97ec56653acd02/frappe/database/__init__.py#L173"
+    }
+  ]
+}
