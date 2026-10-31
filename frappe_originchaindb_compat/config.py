@@ -23,6 +23,14 @@ class TestConfig:
         missing = ["OC_TEST_" + key for key in required if not env.get("OC_TEST_" + key)]
         if missing:
             raise ValueError("Missing test configuration: " + ", ".join(missing))
+        explicit_overrides = {"PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"}
+        ambient = sorted(
+            key
+            for key, value in env.items()
+            if key.startswith("PG") and value and key not in explicit_overrides
+        )
+        if ambient:
+            raise ValueError("Unset ambient PostgreSQL settings before probing: " + ", ".join(ambient))
         try:
             port = int(env["OC_TEST_PGPORT"])
         except ValueError:
@@ -62,12 +70,7 @@ class TestConfig:
             "sslmode": self.sslmode,
             "connect_timeout": 10,
             "application_name": "frappe-originchaindb-compat",
-            # Empty settings explicitly override ambient libpq service/options variables.
-            "service": "",
-            "options": "",
-            "sslcert": "",
-            "sslkey": "",
-            "hostaddr": "",
-            "sslrootcert": self.sslrootcert or "",
         }
+        if self.sslrootcert:
+            result["sslrootcert"] = self.sslrootcert
         return result

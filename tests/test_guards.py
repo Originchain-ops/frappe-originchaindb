@@ -23,6 +23,11 @@ def test_environment():
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_ambient_services_and_connection_options_refused(self):
+        for key in ["PGSERVICE", "PGHOSTADDR", "PGOPTIONS", "PGSSLROOTCERT", "PGPASSFILE"]:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "Unset ambient"):
+                TestConfig.from_environment({**test_environment(), key: "unrelated-production-setting"})
+
     def test_rejects_ambient_production_connection(self):
         with self.assertRaisesRegex(ValueError, "Missing test configuration"):
             TestConfig.from_environment({"PGHOST": "production", "PGPASSWORD": "secret"})

@@ -73,6 +73,9 @@ environment variables from that instance's connection panel and your secret mana
 
 Ordinary `PGHOST`, `PGDATABASE`, `PGUSER` and `PGPASSWORD` are not used as test
 configuration. An HTTP bearer is not assumed to be a SQL password.
+Unset other `PG*` environment settings such as `PGSERVICE`, `PGHOSTADDR` and
+`PGOPTIONS`; the CLI refuses them to prevent an ambient service or address from
+altering the explicit test connection.
 
 ```sh
 frappe-originchaindb-compat probe --allow-scratch-writes --output live-report.json
