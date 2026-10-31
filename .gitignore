@@ -12,4 +12,6 @@ live-report*.json
 reference-report*.json
 *.pem
 *.key
+backend-evidence/
+connection.json
 

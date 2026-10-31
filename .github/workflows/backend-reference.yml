@@ -1,0 +1,72 @@
+name: Experimental backend reference
+
+on:
+  push:
+    branches: [experimental/backend]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  application-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: probe
+          POSTGRES_PASSWORD: reference-only
+          POSTGRES_DB: oc_reference
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U probe -d oc_reference"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    env:
+      OC_ADMIN_PASSWORD: reference-admin-only
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.14'
+      - name: Install runtime libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libmariadb-dev pkg-config libpango-1.0-0 libharfbuzz-subset0
+      - name: Prepare pinned application source
+        run: |
+          mkdir -p "$RUNNER_TEMP/oc-bench/apps"
+          git clone --quiet --depth 1 --branch v16.54.0 https://github.com/frappe/frappe.git "$RUNNER_TEMP/oc-bench/apps/frappe"
+          git clone --quiet --depth 1 --branch v16.53.0 https://github.com/frappe/erpnext.git "$RUNNER_TEMP/oc-bench/apps/erpnext"
+          python integration/apply.py frappe "$RUNNER_TEMP/oc-bench/apps/frappe"
+          python integration/apply.py erpnext "$RUNNER_TEMP/oc-bench/apps/erpnext"
+          python integration/prepare_reference.py "$RUNNER_TEMP/oc-bench"
+      - name: Install real Frappe and ERPNext Python dependencies
+        run: |
+          pip install -e "$RUNNER_TEMP/oc-bench/apps/frappe" -e "$RUNNER_TEMP/oc-bench/apps/erpnext" ".[backend]"
+      - name: Create Frappe site through the experimental backend
+        run: |
+          cd "$RUNNER_TEMP/oc-bench/sites"
+          python -m frappe.utils.bench_helper frappe new-originchaindb-site oc-test.local --connection-config ../connection.json
+      - name: Exercise real DocTypes and schema changes
+        run: |
+          cd "$RUNNER_TEMP/oc-bench/sites"
+          python "$GITHUB_WORKSPACE/integration/reference_smoke.py" framework --output "$GITHUB_WORKSPACE/backend-evidence/framework.json"
+      - name: Install ERPNext through the same backend
+        run: |
+          cd "$RUNNER_TEMP/oc-bench/sites"
+          python -m frappe.utils.bench_helper frappe --site oc-test.local install-app erpnext
+          python "$GITHUB_WORKSPACE/integration/reference_smoke.py" erpnext --output "$GITHUB_WORKSPACE/backend-evidence/erpnext.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: backend-reference-postgresql-only
+          path: backend-evidence/*.json
+          if-no-files-found: warn
+

@@ -1,0 +1,109 @@
+diff --git a/frappe/commands/site.py b/frappe/commands/site.py
+index 1a10b55..c44a5c9 100644
+--- a/frappe/commands/site.py
++++ b/frappe/commands/site.py
+@@ -156,6 +156,16 @@ def new_site(
+ 		sys.exit(1)
+ 
+ 
++@click.command("new-originchaindb-site")
++@click.argument("site")
++@click.option("--connection-config", type=click.Path(exists=True, dir_okay=False), required=True)
++@click.option("--admin-password", envvar="OC_ADMIN_PASSWORD", prompt=True, hide_input=True, confirmation_prompt=True)
++def new_originchaindb_site(site, connection_config, admin_password):
++	"""EXPERIMENTAL: initialize an empty pre-provisioned OriginChainDB schema."""
++	from frappe_originchaindb.setup import create_site
++	create_site(site, connection_config, admin_password)
++
++
+ @click.command("restore")
+ @click.argument("sql-file-path")
+ @click.option(
+@@ -1637,6 +1647,7 @@ commands = [
+ 	migrate,
+ 	migrate_to,
+ 	new_site,
++	new_originchaindb_site,
+ 	reinstall,
+ 	reload_doc,
+ 	reload_doctype,
+diff --git a/frappe/database/__init__.py b/frappe/database/__init__.py
+index c8a0413..d51ee37 100644
+--- a/frappe/database/__init__.py
++++ b/frappe/database/__init__.py
+@@ -12,6 +12,10 @@ from frappe.database.database import savepoint
+ def setup_database(force, verbose=None, mariadb_user_host_login_scope=None):
+ 	import frappe
+ 
++	if frappe.conf.get("db_backend") == "originchaindb":
++		from frappe_originchaindb.setup import setup_database as originchain_setup_database
++		return originchain_setup_database(force, verbose, mariadb_user_host_login_scope)
++
+ 	if frappe.conf.db_type == "mariadb":
+ 		import frappe.database.mariadb.setup_db
+ 
+@@ -29,6 +33,10 @@ def setup_database(force, verbose=None, mariadb_user_host_login_scope=None):
+ def bootstrap_database(verbose=None, source_sql=None):
+ 	import frappe
+ 
++	if frappe.conf.get("db_backend") == "originchaindb":
++		from frappe_originchaindb.setup import bootstrap_database as originchain_bootstrap_database
++		return originchain_bootstrap_database(verbose, source_sql)
++
+ 	if frappe.conf.db_type == "mariadb":
+ 		import frappe.database.mariadb.setup_db
+ 
+@@ -46,6 +54,10 @@ def bootstrap_database(verbose=None, source_sql=None):
+ def drop_user_and_database(db_name, db_user):
+ 	import frappe
+ 
++	if frappe.conf.get("db_backend") == "originchaindb":
++		from frappe_originchaindb.setup import drop_user_and_database as originchain_drop
++		return originchain_drop(db_name, db_user)
++
+ 	if frappe.conf.db_type == "mariadb":
+ 		import frappe.database.mariadb.setup_db
+ 
+@@ -65,6 +77,12 @@ def get_db(socket=None, host=None, user=None, password=None, port=None, cur_db_n
+ 
+ 	conf = frappe.local.conf
+ 
++	if conf.get("db_backend"):
++		if conf.db_backend != "originchaindb":
++			raise ValueError("Unknown db_backend")
++		from frappe_originchaindb.database import OriginChainDatabase
++		return OriginChainDatabase(socket, host, user, password, port, cur_db_name)
++
+ 	if conf.db_type == "postgres":
+ 		import frappe.database.postgres.database
+ 
+@@ -123,6 +141,9 @@ def get_command(
+ ):
+ 	import frappe
+ 
++	if frappe.conf.get("db_backend") == "originchaindb":
++		raise RuntimeError("Native database CLI, dump and restore are not implemented for OriginChainDB")
++
+ 	if frappe.conf.db_type == "mariadb":
+ 		if dump:
+ 			bin, bin_name = which("mariadb-dump") or which("mysqldump"), "mariadb-dump"
+diff --git a/frappe/installer.py b/frappe/installer.py
+index 6e3a8c5..b5fe3c9 100644
+--- a/frappe/installer.py
++++ b/frappe/installer.py
+@@ -56,6 +56,7 @@ def _new_site(
+ 	setup_db=True,
+ 	rollback_callback=None,
+ 	mariadb_user_host_login_scope=None,
++	site_config=None,
+ ):
+ 	"""Install a new Frappe site"""
+ 
+@@ -97,6 +98,7 @@ def _new_site(
+ 			db_port=db_port,
+ 			db_user=db_user,
+ 			setup=setup_db,
++			site_config=site_config,
+ 			rollback_callback=rollback_callback,
+ 			mariadb_user_host_login_scope=mariadb_user_host_login_scope,
+ 		)

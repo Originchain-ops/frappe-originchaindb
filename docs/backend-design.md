@@ -1,6 +1,8 @@
 # Candidate backend design
 
-Status: design, not implemented. Target: the pinned Frappe + ERPNext v16 baseline.
+Status: experimental implementation in `frappe_originchaindb/`, with pinned
+integration patches in `integration/patches/`. Target: Frappe + ERPNext v16.
+No OriginChainDB instance has been used. The notes below include remaining work.
 
 Start by testing the actual OriginChainDB PostgreSQL listener. Reusing the driver
 and parts of Frappe's PostgreSQL backend is a candidate approach, subject to
@@ -41,8 +43,9 @@ engine semantics and deployment restrictions. A patch should fix a known mismatc
 it must not swallow errors, fabricate catalog responses, downgrade isolation, or
 turn commit/rollback into no-ops.
 
-The initial workbench deliberately has no stub database class that could be mistaken
-for a usable adapter. Public docs cannot establish the exact endpoint's behavior.
-Without a test instance, backend registration would present an unverified backend as
-an installable option.
+The adapter requires explicit experimental opt-in. `db_type=postgres` retains the
+upstream SQL dialect, while `db_backend=originchaindb` selects the subclass before
+site initialization. Public docs cannot establish the endpoint's behavior. The
+connection forces repeatable read and fails before writes if it is refused. Native
+dump/restore and managed database/user deletion are explicitly disabled.
 

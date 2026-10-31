@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frappe-originchaindb-compat"
-version = "0.1.0a1"
-description = "Compatibility assessment and PostgreSQL-wire prerequisites for a future Frappe/ERPNext OriginChainDB port"
+version = "0.2.0a1"
+description = "Experimental Frappe OriginChainDB backend and compatibility workbench"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -13,6 +13,7 @@ dependencies = []
 
 [project.optional-dependencies]
 live = ["psycopg2-binary>=2.9.10,<3"]
+backend = ["psycopg2-binary>=2.9.10,<3", "sqlparse>=0.5,<0.7"]
 
 [project.scripts]
 frappe-originchaindb-compat = "frappe_originchaindb_compat.cli:main"
@@ -21,7 +22,7 @@ frappe-originchaindb-compat = "frappe_originchaindb_compat.cli:main"
 Repository = "https://github.com/Originchain-ops/frappe-originchaindb"
 
 [tool.setuptools.packages.find]
-include = ["frappe_originchaindb_compat*"]
+include = ["frappe_originchaindb_compat*", "frappe_originchaindb*"]
 
 [tool.ruff]
 line-length = 110

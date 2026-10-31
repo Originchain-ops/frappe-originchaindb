@@ -1,16 +1,18 @@
-# Frappe + ERPNext on OriginChainDB: compatibility workbench
+# Frappe + ERPNext on OriginChainDB: experimental backend
 
-**Status: prerequisite tooling only. No OriginChainDB backend adapter is implemented.**
+**Status: experimental backend implementation; OriginChainDB execution is unverified.**
 
-This project prepares a future Frappe and ERPNext port using OriginChainDB's
-PostgreSQL wire interface as the initial candidate. It does **not** install
-ERPNext on OriginChainDB, replace MariaDB, or establish application compatibility.
-No OriginChainDB instance was accessed for the initial release.
+The `experimental/backend` branch adds a Frappe database subclass, managed-schema
+bootstrap, a Bench command, pinned integration patches and two ERPNext aggregation
+fixes. It uses the PostgreSQL dialect with a separate `db_backend=originchaindb`
+identity. No OriginChainDB instance has been accessed, and the implementation does
+not establish full application compatibility.
 
-The first prerelease contains a reproducible source audit, eight database behavior
-probes, offline guard tests, packaging, and a CI reference run on ordinary PostgreSQL.
-Green reference CI proves the probe harness works on that reference database;
-it provides no OriginChainDB compatibility evidence.
+Read the [experimental installation guide](docs/experimental-install.md) before
+applying the patches. The original `0.1.0-alpha.1` release remains a toolkit-only
+baseline. This branch retains its reproducible audit and eight behavior probes,
+and adds real application reference tests. Any green PostgreSQL reference CI
+provides evidence only for the stated operations on that reference database.
 
 ## Reviewed baseline
 
@@ -123,8 +125,9 @@ the [release gates](docs/release-gates.md) define the work required before a
 working Frappe/ERPNext distribution can be claimed. A pass on eight probes is
 only an input to that work.
 
-This toolkit's original code is MIT licensed. Upstream source is linked rather
-than bundled. Frappe's [MIT license](https://github.com/frappe/frappe/blob/v16.54.0/LICENSE)
-and ERPNext's [GPLv3 license](https://github.com/frappe/erpnext/blob/v16.53.0/license.txt)
-remain separate. This is not an upstream Frappe release or endorsement.
+The toolkit and original adapter code are MIT licensed. Integration patches carry
+upstream context and retain the respective upstream licenses: Frappe's
+[MIT license](https://github.com/frappe/frappe/blob/v16.54.0/LICENSE) and ERPNext's
+[GPLv3 license](https://github.com/frappe/erpnext/blob/v16.53.0/license.txt).
+This is not an upstream Frappe release or endorsement.
 
